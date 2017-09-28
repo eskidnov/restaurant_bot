@@ -30,14 +30,14 @@ back_keyboard.add(telebot.types.KeyboardButton(text=config.back_button))
 #            for i, button_text in enumerate(config.menu_keyboard, 1))
 # menu_keyboard[0].add(*buttons)
 
-### ЗДЕСЬ НУЖНА ВЫГРУЗКА РАЗДЕЛОВ ИЗ БД
+#### ЗДЕСЬ НУЖНА ВЫГРУЗКА РАЗДЕЛОВ ИЗ БД
 menu_keyboard = telebot.types.InlineKeyboardMarkup(row_width=2)
 sorted_sections_list = list(config.menu_keyboard)
 sorted_sections_list.sort()
 buttons = (telebot.types.InlineKeyboardButton(text=button_text, callback_data='menu_'+str(i))
            for i, button_text in enumerate(sorted_sections_list))
 menu_keyboard.add(*buttons)
-###
+####
 
 def amount(user_id, item):
     amount_keyboard = telebot.types.InlineKeyboardMarkup()
