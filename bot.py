@@ -121,7 +121,8 @@ def menu_dishes(query):
           '" в "Раздел меню', section_number+1, '" в "Меню"')
     bot.answer_callback_query(callback_query_id=query.id)
     bot.edit_message_text(chat_id=query.message.chat.id, message_id=query.message.message_id,
-                          text=config.menu_keyboard[sorted_sections_list[section_number-1]][item_number-1])
+                          text=config.menu_keyboard[sorted_sections_list[section_number-1]][item_number-1],
+                          parse_mode='Markdown')
 
 @bot.callback_query_handler(func=lambda query: query.data[:3] == 'a->')
 def amount_inc(query):
@@ -231,13 +232,13 @@ def telega(message):
     for item in utils.get_basket(str(message.from_user.id)):
         # НАДЕЮСЬ, ЧТО НУЖНО ДЕЛАТЬ ПОЯСНЕНИЙ НЕ ТРЕБУЕТСЯ, НО ЕСЛИ ЧТО, ЗВОНИ :-*
         amount = utils.item_amount(str(message.from_user.id), item)
-        msg += '- ' + item + ': ' + str(amount) + '\n'
-        price += amount * 100
-    prices = {'Заказ №12345' : [telebot.types.LabeledPrice('Заказ №12345', price)]}
+        msg += ' - ' + item + ': ' + str(amount) + '\n'
+        price += amount * 10000
+    prices = [telebot.types.LabeledPrice('Заказ №12345', price)]
     new_pay = telebot.types.InlineKeyboardMarkup(row_width=1)
     new_pay.add(telebot.types.InlineKeyboardButton(text=config.pay, pay=True))
     bot.send_invoice(chat_id=message.chat.id,
-                     title='Заказа №12345',
+                     title='Заказ №12345',
                      description=msg,
                      invoice_payload='invoice',
                      provider_token=config.provider_token,
@@ -252,14 +253,16 @@ def telega(message):
 
 @bot.shipping_query_handler(func=lambda query: True)
 def shipping(shipping_query):
-    shipping_options = [
-        telebot.types.ShippingOption('delivery', 'Доставка курьером').add_price([
-            telebot.types.LabeledPrice('Курьер', 10000)
-        ]),
-        telebot.types.ShippingOption('sam', 'Самовывоз').add_price([
-            telebot.types.LabeledPrice('Самовывоз', 0)
-        ]),
-    ]
+    shipping_options = []
+
+    shipping_option = telebot.types.ShippingOption('delivery', 'Доставка курьером')
+    shipping_option.add_price(telebot.types.LabeledPrice('Курьер', 10000))
+    shipping_options.append(shipping_option)
+
+    shipping_option = telebot.types.ShippingOption('sam', 'Самовывоз')
+    shipping_option.add_price(telebot.types.LabeledPrice('Самовывоз', 0))
+    shipping_options.append(shipping_option)
+
     bot.answer_shipping_query(shipping_query_id=shipping_query.id, ok=True, shipping_options=shipping_options,
                               error_message=config.error_answer_query)
 
@@ -273,10 +276,13 @@ def checkout(pre_checkout_query):
 
 @bot.message_handler(content_types=['successful_payment'])
 def got_payment(message):
+    print('Пользователь', message.from_user.id, 'оформил заказ')
+    for item in utils.get_basket(str(message.from_user.id)):
+        utils.del_from_basket(str(message.from_user.id), item)
     bot.send_message(chat_id=message.chat.id,
-                     text=payment.successful_payment.format(message.successful_payment.total_amount / 100,
+                     text=config.successful_payment.format(message.successful_payment.total_amount / 100,
                                                             message.successful_payment.currency),
-                     parse_mode='Markdown')
+                     parse_mode='Markdown', reply_markup=main_menu_keyboard)
 
 if __name__ == '__main__':
     bot.polling(none_stop=True)
