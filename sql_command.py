@@ -1,12 +1,13 @@
 import sqlite3
 import config
 
-conn = sqlite3.connect(config.expl)
+conn = sqlite3.connect(config.expl) #VMESTO "config.expl" NUGNO PODSTAVIT PYT' K SQL FAILU
 cursor = conn.cursor()
 #вывод всех компаний
 cursor.execute("""
 SELECT Название
   FROM Заведения
+  ORDER BY Название
 """)
 all_company = cursor.fetchall()
 
@@ -16,14 +17,15 @@ all_company = cursor.fetchall()
 company = "KFC"
 cursor.execute("""
 SELECT Блюдо
-FROM '""" + str(company) +"'")
+FROM '""" + str(company) +"' ORDER BY Блюдо")
 price = cursor.fetchall()
 
 
 #вывод все варианты кухни
 cursor.execute("""
 SELECT Название
-  FROM Кухня;
+  FROM Кухня
+  ORDER BY Название;
   """)
 kitchen = cursor.fetchall()
 
@@ -38,15 +40,10 @@ kitchen_price = cursor.fetchall()
 #Вывод всей информации о блюде
 bludo = "Биггер"
 cursor.execute("""
-SELECT Блюдо,
-       Изображение,
-       Описание,
-       Состав,
-       Стоимость,
-       Кухня
+SELECT *
   FROM KFC
  WHERE Блюдо = '""" + str(bludo) +"'")
-info_food
+info_food = cursor.fetchall()
 
 
 

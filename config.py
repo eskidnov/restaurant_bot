@@ -1,6 +1,8 @@
 # -*- coding: utf-8 -*-
 
 # TEST
+
+
 token = '360393815:AAHHDzp1chG3necRIhrc40JgDHovnVPse8U'
 provider_token = '381764678:TEST:1601'
 shelve_name = 'shelve.db'
