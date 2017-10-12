@@ -1,18 +1,9 @@
 # -*- coding: utf-8 -*-
-import sqlite3
 import telebot
 import config
 import utils
-import sql_command
 
 bot = telebot.TeleBot(config.token)
-
-main_menu_keyboard = telebot.types.ReplyKeyboardMarkup(resize_keyboard=True, row_width=2)
-buttons = (telebot.types.KeyboardButton(text=button_text) for button_text in config.main_menu_keyboard)
-main_menu_keyboard.add(*buttons)
-
-back_keyboard = telebot.types.ReplyKeyboardMarkup(resize_keyboard=True, row_width=1)
-back_keyboard.add(telebot.types.KeyboardButton(text=config.back_button))
 
 # Возможно полезная херня с сортированным вложенным меню
 # # Создание сортированного списка разделов меню
@@ -32,233 +23,132 @@ back_keyboard.add(telebot.types.KeyboardButton(text=config.back_button))
 #            for i, button_text in enumerate(config.menu_keyboard, 1))
 # menu_keyboard[0].add(*buttons)
 
-#### ЗДЕСЬ НУЖНА ВЫГРУЗКА РАЗДЕЛОВ ИЗ БД
-global keyboard
-conn = sqlite3.connect(config.expl)
-cursor = conn.cursor()
-for i in sql_command.kitchen:
-    kitchen = str(i)
-
-    cursor.execute("""
-    SELECT Блюдо
-      FROM KFC
-      WHERE Кухня = '""" + (kitchen[2:-3]) + "'")
-    kitchen_price = str(cursor.fetchall())
-    kitchen_price = kitchen_price[2:-3]
-    global keyboard
-    keyboard = {
-        sql_command.kitchen: [
-            'Блюдо 3',
-            'Блюдо 4',
-        ],
-        'Раздел меню 2': [
-            'Блюдо 3',
-            'Блюдо 4', ]
-    }
-conn.close()
-menu_keyboard = telebot.types.InlineKeyboardMarkup(row_width=2)
-sorted_sections_list = list(keyboard)
-sorted_sections_list.sort()
-buttons = (telebot.types.InlineKeyboardButton(text=button_text, callback_data='menu_' + str(i))
-           for i, button_text in enumerate(sorted_sections_list))
-menu_keyboard.add(*buttons)
-
-
-####
-
-def amount(user_id, item):
-    amount_keyboard = telebot.types.InlineKeyboardMarkup()
-    amount_keyboard.row(telebot.types.InlineKeyboardButton(text='<-', callback_data='a<-_' + item),
-                        telebot.types.InlineKeyboardButton(text=str(utils.item_amount(user_id, item)),
-                                                           callback_data='amount_' + item),
-                        telebot.types.InlineKeyboardButton(text='->', callback_data='a->_' + item))
-    return amount_keyboard
-
-
-def basket(user_id, item):
-    basket_keyboard = telebot.types.InlineKeyboardMarkup()
-    basket_keyboard.row(telebot.types.InlineKeyboardButton(text='<-', callback_data='b<-_' + item),
-                        telebot.types.InlineKeyboardButton(text=str(utils.item_amount(user_id, item)),
-                                                           callback_data='amount_' + item),
-                        telebot.types.InlineKeyboardButton(text='->', callback_data='b->_' + item))
-    basket_keyboard.add(telebot.types.InlineKeyboardButton(text=config.del_from_basket,
-                                                           callback_data='remove_' + item))
-    return basket_keyboard
-
-
-pay_keyboard = telebot.types.ReplyKeyboardMarkup(resize_keyboard=True, row_width=1)
-pay_keyboard.add(telebot.types.KeyboardButton(text=config.pay_button),
-                 telebot.types.KeyboardButton(text=config.back_button))
-
-hidden_keyboard = telebot.types.ReplyKeyboardRemove()
-
-
 @bot.message_handler(commands=['start'])
 def start(message):
     user_id = str(message.from_user.id)
     print('Бот запущен пользователем', user_id)
     utils.set_basket(user_id)
-    bot.send_message(chat_id=message.chat.id, text=config.main_menu, parse_mode='markdown',
-                     reply_markup=main_menu_keyboard)
-
+    bot.send_message(message.chat.id, config.main_menu, parse_mode='markdown', reply_markup=main_menu_keyboard)
 
 # ВОЗВРАТ В МЕНЮ
 
 @bot.message_handler(func=lambda item: item.text == config.back_button, content_types=['text'])
 def back(message):
     print('Пользователь', message.from_user.id, 'вернулся в основное меню')
-    bot.send_message(chat_id=message.chat.id, text=config.main_menu, reply_markup=main_menu_keyboard)
-
+    bot.send_message(message.chat.id, config.main_menu, reply_markup=main_menu_keyboard)
 
 # ОПИСАНИЕ
 
 @bot.message_handler(func=lambda item: item.text == config.main_menu_keyboard[0], content_types=['text'])
 def description(message):
     print('Пользователь', message.from_user.id, 'открыл "Описание"')
-    bot.send_message(chat_id=message.chat.id, text=config.description, reply_markup=back_keyboard)
-
+    bot.send_message(message.chat.id, config.description, reply_markup=back_keyboard)
 
 # ФОТОГРАФИИ
 
 @bot.message_handler(func=lambda item: item.text == config.main_menu_keyboard[1], content_types=['text'])
 def photos(message):
     print('Пользователь', message.from_user.id, 'открыл "Фотографии"')
-    bot.send_message(chat_id=message.chat.id, text=config.photos, reply_markup=back_keyboard)
-
+    bot.send_message(message.chat.id, config.photos, reply_markup=back_keyboard)
 
 # МЕНЮ
 
 @bot.message_handler(func=lambda item: item.text == config.main_menu_keyboard[2], content_types=['text'])
 def menu(message):
     print('Пользователь', message.from_user.id, 'открыл "Меню"')
-    bot.send_message(chat_id=message.chat.id, text=config.menu, reply_markup=menu_keyboard)
+    bot.send_message(message.chat.id, config.menu, reply_markup=menu_keyboard)
 
-
-@bot.callback_query_handler(func=lambda query: query.data[:4] == 'menu' and len(query.data.split('_')) == 2)
+@bot.callback_query_handler(func=lambda query: 'menu' in query.data)
 def menu_section(query):
-    section_number = int(query.data.split('_')[1])
-    print('Пользователь', query.from_user.id, 'открыл "Раздел меню', section_number + 1, '" в "Меню"')
-    bot.answer_callback_query(callback_query_id=query.id)
-    bot.edit_message_text(chat_id=query.message.chat.id, message_id=query.message.message_id,
-                          text=sorted_sections_list[section_number])
-    # ЗДЕСЬ НУЖНА ВЫГРУЗКА БЛЮД РАЗДЕЛА ИЗ БД
-    for item in config.menu_keyboard[sorted_sections_list[section_number]]:
-        to_basket = amount(str(query.from_user.id), item)
-        if utils.item_amount(str(query.from_user.id), item):
-            to_basket.add(telebot.types.InlineKeyboardButton(text=config.to_basket,
-                                                             callback_data='to_basket_' + item))
-        bot.send_message(chat_id=query.message.chat.id, text=item, reply_markup=to_basket)
+    bot.answer_callback_query(query.id)
 
-
-@bot.callback_query_handler(func=lambda query: query.data[:4] == 'menu' and len(query.data.split('_')) == 3)
-def menu_dishes(query):
-    section_number, item_number = (int(elem) for elem in query.data.split('_')[1:])
-    print('Пользователь', query.from_user.id, 'открыл "Блюдо', item_number,
-          '" в "Раздел меню', section_number + 1, '" в "Меню"')
-    bot.answer_callback_query(callback_query_id=query.id)
-    bot.edit_message_text(chat_id=query.message.chat.id, message_id=query.message.message_id,
-<<<<<<< HEAD
-                          text=config.menu_keyboard[sorted_sections_list[section_number - 1]][item_number - 1])
-
-=======
-                          text=config.menu_keyboard[sorted_sections_list[section_number-1]][item_number-1],
-                          parse_mode='Markdown')
->>>>>>> 77ec89d9b737fb82c474e6858ea5d395b0b1c858
-
-@bot.callback_query_handler(func=lambda query: query.data[:3] == 'a->')
-def amount_inc(query):
-    bot.answer_callback_query(callback_query_id=query.id)
-    utils.add_to_basket(str(query.from_user.id), query.data[4:])
-    to_basket = amount(str(query.from_user.id), query.data[4:])
-    to_basket.add(telebot.types.InlineKeyboardButton(text=config.to_basket,
-                                                     callback_data='to_basket_' + query.data[4:]))
-    bot.edit_message_reply_markup(chat_id=query.message.chat.id, message_id=query.message.message_id,
-                                  reply_markup=to_basket)
-
-
-@bot.callback_query_handler(func=lambda query: query.data[:3] == 'a<-')
-def amount_inc(query):
-    bot.answer_callback_query(callback_query_id=query.id)
-    utils.remove_amount(str(query.from_user.id), query.data[4:])
-    to_basket = amount(str(query.from_user.id), query.data[4:])
-    if utils.item_amount(str(query.from_user.id), query.data[4:]):
-        to_basket.add(telebot.types.InlineKeyboardButton(text=config.to_basket,
-                                                         callback_data='to_basket_' + query.data[4:]))
-    else:
-        utils.del_from_basket(str(query.from_user.id), query.data[4:])
-    bot.edit_message_reply_markup(chat_id=query.message.chat.id, message_id=query.message.message_id,
-                                  reply_markup=to_basket)
-
-
-@bot.callback_query_handler(func=lambda query: query.data[:9] == 'to_basket')
-def to_basket(query):
-    bot.answer_callback_query(callback_query_id=query.id)
     user_id = str(query.from_user.id)
-    _basket = utils.get_basket(user_id)
-    print('Пользователь', user_id, 'открыл "Корзина"')
-    print(utils.get_basket(user_id))
-    if not _basket:
-        bot.send_message(query.message.chat.id, config.basket)
-        bot.send_message(chat_id=query.message.chat.id, text=config.empty_basket)
-    else:
-        bot.send_message(query.message.chat.id, config.basket, reply_markup=pay_keyboard)
-        for item in _basket:
-            bot.send_message(chat_id=query.message.chat.id, text=item, reply_markup=basket(user_id, item))
+    section_number = int(query.data[5:])
+    section = sorted_sections_list[section_number]
+    print('Пользователь', user_id, 'открыл "Раздел меню', section_number+1, '" в "Меню"')
 
+    bot.edit_message_text(section, query.message.chat.id, query.message.message_id)
+    # ЗДЕСЬ НУЖНА ВЫГРУЗКА БЛЮД РАЗДЕЛА ИЗ БД
+    for item in config.menu_keyboard[section]:
+        bot.send_message(query.message.chat.id, item, reply_markup=amount_keyboard(user_id, item))
+
+@bot.callback_query_handler(func=lambda query: '->' in query.data)
+def amount_inc(query):
+    bot.answer_callback_query(query.id)
+
+    user_id = str(query.from_user.id)
+    item = query.data.split('_')[1]
+
+    utils.add_to_basket(user_id, item)
+    if 'b->' in query.data:
+        bot.edit_message_reply_markup(query.message.chat.id, query.message.message_id,
+                                      reply_markup=amount_keyboard(user_id, item, basket=True))
+    else:
+        bot.edit_message_reply_markup(query.message.chat.id, query.message.message_id,
+                                      reply_markup=amount_keyboard(user_id, item))
+
+@bot.callback_query_handler(func=lambda query: '<-' in query.data)
+def amount_dec(query):
+    bot.answer_callback_query(query.id)
+
+    user_id = str(query.from_user.id)
+    chat_id = query.message.chat.id
+    item = query.data.split('_')[1]
+
+    utils.remove_amount(user_id, item)
+    if not utils.item_amount(user_id, item):
+        utils.del_from_basket(user_id, item)
+        if 'b<-' in query.data:
+            bot.delete_message(chat_id, query.message.message_id)
+            bot.send_message(chat_id, config.empty_basket)
+        else:
+            bot.edit_message_reply_markup(chat_id, query.message.message_id,
+                                          reply_markup=amount_keyboard(user_id, item))
+    elif 'b<-' in query.data:
+        bot.edit_message_reply_markup(chat_id, query.message.message_id,
+                                      reply_markup=amount_keyboard(user_id, item, basket=True))
+    else:
+        bot.edit_message_reply_markup(chat_id, query.message.message_id,
+                                      reply_markup=amount_keyboard(user_id, item))
+
+@bot.callback_query_handler(func=lambda query: query.data == 'to_basket')
+def to_basket(query):
+    bot.answer_callback_query(query.id)
+    basket(str(query.from_user.id), query.message.chat.id)
 
 # КОРЗИНА
 
-@bot.message_handler(func=lambda item: item.text == config.main_menu_keyboard[3], content_types=['text'])
-def __basket(message):
-    print('Пользователь', message.from_user.id, 'открыл "Корзина"')
-    user_id = str(message.from_user.id)
+def basket(user_id, chat_id):
     _basket = utils.get_basket(user_id)
+    print('Пользователь', user_id, 'открыл "Корзина"')
+    print(utils.get_basket(user_id))
+
     if not _basket:
-        bot.send_message(message.chat.id, config.basket)
-        bot.send_message(chat_id=message.chat.id, text=config.empty_basket)
+        bot.send_message(chat_id, config.basket)
+        bot.send_message(chat_id, config.empty_basket)
     else:
-        bot.send_message(message.chat.id, config.basket, reply_markup=pay_keyboard)
+        bot.send_message(chat_id, config.basket, reply_markup=pay_keyboard)
         for item in _basket:
-            bot.send_message(chat_id=message.chat.id, text=item, reply_markup=basket(user_id, item))
+            bot.send_message(chat_id, item, reply_markup=amount_keyboard(user_id, item, basket=True))
 
-
-@bot.callback_query_handler(func=lambda query: query.data[:3] == 'b->')
-def amount_inc(query):
-    bot.answer_callback_query(callback_query_id=query.id)
-    utils.add_to_basket(str(query.from_user.id), query.data[4:])
-    bot.edit_message_reply_markup(chat_id=query.message.chat.id, message_id=query.message.message_id,
-                                  reply_markup=basket(str(query.from_user.id), query.data[4:]))
-
-
-@bot.callback_query_handler(func=lambda query: query.data[:3] == 'b<-')
-def amount_inc(query):
-    bot.answer_callback_query(callback_query_id=query.id)
-    utils.remove_amount(str(query.from_user.id), query.data[4:])
-    if not utils.item_amount(str(query.from_user.id), query.data[4:]):
-        utils.del_from_basket(str(query.from_user.id), query.data[4:])
-        bot.delete_message(chat_id=query.message.chat.id, message_id=query.message.message_id)
-    else:
-        bot.edit_message_reply_markup(chat_id=query.message.chat.id, message_id=query.message.message_id,
-                                      reply_markup=basket(str(query.from_user.id), query.data[4:]))
-    if not utils.get_basket(str(query.from_user.id)):
-        bot.send_message(chat_id=query.message.chat.id, text=config.empty_basket)
-
+@bot.message_handler(func=lambda item: item.text == config.main_menu_keyboard[3], content_types=['text'])
+def _basket(message):
+    basket(str(message.from_user.id), message.chat.id)
 
 @bot.callback_query_handler(func=lambda query: query.data[:6] == 'amount')
 def item_amount(query):
     print(utils.get_basket(str(query.from_user.id)))
     bot.answer_callback_query(callback_query_id=query.id)
 
-
 @bot.callback_query_handler(func=lambda query: query.data[:6] == 'remove')
 def remove(query):
-    utils.del_from_basket(str(query.from_user.id), query.data[7:])
     bot.answer_callback_query(callback_query_id=query.id)
+
+    utils.del_from_basket(str(query.from_user.id), query.data[7:])
     bot.delete_message(chat_id=query.from_user.id, message_id=query.message.message_id)
     print(utils.get_basket(str(query.from_user.id)))
     if not utils.get_basket(str(query.from_user.id)):
         bot.send_message(chat_id=query.message.chat.id, text=config.empty_basket)
-
 
 # ОФОРМЛЕНИЕ ЗАКАЗА
 
@@ -271,10 +161,9 @@ def payment(message):
                          telebot.types.KeyboardButton(config.back_button))
     bot.send_message(message.chat.id, config.choose_pay_way, reply_markup=pay_way_keyboard)
 
-
 # ЗДЕСЬ НУЖНА ВЫГРУЗКА ДАННЫХ ПО КАЖДОМУ ПРОДУКТУ ИЗ КОРЗИНЫ ИЗ БД
 @bot.message_handler(func=lambda item: item.text == config.pay_way[0], content_types=['text'])
-def telega(message):
+def pay_newAPI(message):
     print('Пользователь', message.from_user.id, 'оформляет заказ через Telegram')
     bot.send_message(message.chat.id, config.view_basket, reply_markup=back_keyboard)
     msg = ''
@@ -282,19 +171,15 @@ def telega(message):
     for item in utils.get_basket(str(message.from_user.id)):
         # НАДЕЮСЬ, ЧТО НУЖНО ДЕЛАТЬ ПОЯСНЕНИЙ НЕ ТРЕБУЕТСЯ, НО ЕСЛИ ЧТО, ЗВОНИ :-*
         amount = utils.item_amount(str(message.from_user.id), item)
-<<<<<<< HEAD
-        msg += '- ' + item + ': ' + str(amount) + '\n'
-        price += amount * 100
-    prices = {'Заказ №12345': [telebot.types.LabeledPrice('Заказ №12345', price)]}
-=======
         msg += ' - ' + item + ': ' + str(amount) + '\n'
         price += amount * 10000
-    prices = [telebot.types.LabeledPrice('Заказ №12345', price)]
->>>>>>> 77ec89d9b737fb82c474e6858ea5d395b0b1c858
+    prices = [telebot.types.LabeledPrice(config.check_num, price)]
+
     new_pay = telebot.types.InlineKeyboardMarkup(row_width=1)
     new_pay.add(telebot.types.InlineKeyboardButton(text=config.pay, pay=True))
+
     bot.send_invoice(chat_id=message.chat.id,
-                     title='Заказ №12345',
+                     title=config.check_num,
                      description=msg,
                      invoice_payload='invoice',
                      provider_token=config.provider_token,
@@ -306,7 +191,6 @@ def telega(message):
                      need_shipping_address=True,
                      is_flexible=True,
                      reply_markup=new_pay)
-
 
 @bot.shipping_query_handler(func=lambda query: True)
 def shipping(shipping_query):
@@ -338,9 +222,56 @@ def got_payment(message):
         utils.del_from_basket(str(message.from_user.id), item)
     bot.send_message(chat_id=message.chat.id,
                      text=config.successful_payment.format(message.successful_payment.total_amount / 100,
-                                                            message.successful_payment.currency),
+                                                           message.successful_payment.currency),
                      parse_mode='Markdown', reply_markup=main_menu_keyboard)
 
-
 if __name__ == '__main__':
+
+    main_menu_keyboard = telebot.types.ReplyKeyboardMarkup(resize_keyboard=True, row_width=2)
+    buttons = (telebot.types.KeyboardButton(text=button_text) for button_text in config.main_menu_keyboard)
+    main_menu_keyboard.add(*buttons)
+
+    back_keyboard = telebot.types.ReplyKeyboardMarkup(resize_keyboard=True, row_width=1)
+    back_keyboard.add(telebot.types.KeyboardButton(text=config.back_button))
+
+    def amount_keyboard(user_id, item, basket=False):
+        if basket:
+            amount = telebot.types.InlineKeyboardMarkup()
+            amount.row(telebot.types.InlineKeyboardButton(text='<-', callback_data='b<-_' + item),
+                       telebot.types.InlineKeyboardButton(text=str(utils.item_amount(user_id, item)),
+                                                          callback_data='amount_' + item),
+                       telebot.types.InlineKeyboardButton(text='->', callback_data='b->_' + item))
+            amount.add(telebot.types.InlineKeyboardButton(text=config.del_from_basket,
+                                                          callback_data='remove_' + item))
+        elif utils.item_amount(user_id, item):
+            amount = telebot.types.InlineKeyboardMarkup()
+            amount.row(telebot.types.InlineKeyboardButton(text='<-', callback_data='<-_' + item),
+                       telebot.types.InlineKeyboardButton(text=str(utils.item_amount(user_id, item)),
+                                                          callback_data='amount_' + item),
+                       telebot.types.InlineKeyboardButton(text='->', callback_data='->_' + item))
+            amount.add(telebot.types.InlineKeyboardButton(text=config.to_basket, callback_data='to_basket'))
+        else:
+            amount = telebot.types.InlineKeyboardMarkup()
+            amount.row(telebot.types.InlineKeyboardButton(text='<-', callback_data='<-_' + item),
+                       telebot.types.InlineKeyboardButton(text=str(utils.item_amount(user_id, item)),
+                                                          callback_data='amount_' + item),
+                       telebot.types.InlineKeyboardButton(text='->', callback_data='->_' + item))
+
+        return amount
+
+    ### ЗДЕСЬ НУЖНА ВЫГРУЗКА РАЗДЕЛОВ ИЗ БД
+    menu_keyboard = telebot.types.InlineKeyboardMarkup(row_width=2)
+    sorted_sections_list = list(config.menu_keyboard)
+    sorted_sections_list.sort()
+    buttons = (telebot.types.InlineKeyboardButton(text=button_text, callback_data='menu_' + str(i))
+               for i, button_text in enumerate(sorted_sections_list))
+    menu_keyboard.add(*buttons)
+    ###
+
+    pay_keyboard = telebot.types.ReplyKeyboardMarkup(resize_keyboard=True, row_width=1)
+    pay_keyboard.add(telebot.types.KeyboardButton(text=config.pay_button),
+                     telebot.types.KeyboardButton(text=config.back_button))
+
+    hidden_keyboard = telebot.types.ReplyKeyboardRemove()
+
     bot.polling(none_stop=True)
