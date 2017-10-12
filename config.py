@@ -48,3 +48,4 @@ pay = 'Оплатить'
 error_answer_query = 'Курьер к вам не приедет'
 error_pre_checkout = 'Ошибка. Попробуйте позже'
 successful_payment = 'Спасибо за покупку! Мы доставим ваш товар на сумму `{} {}` как можно быстрее! Оставайтесь на связи.'
+expl = "D:/Users/RIGBY/Documents/GitHub/restaurant_bot/SQL/restorator.db"

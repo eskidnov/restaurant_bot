@@ -1,4 +1,5 @@
 # -*- coding: utf-8 -*-
+import sqlite3
 import telebot
 import config
 import utils
@@ -274,4 +275,58 @@ if __name__ == '__main__':
 
     hidden_keyboard = telebot.types.ReplyKeyboardRemove()
 
+
+class sql:
+    def tovars(self):
+        conn = sqlite3.connect(config.expl)
+        cursor = conn.cursor()
+        company = "KFC"
+        cursor.execute("""
+        SELECT Блюдо
+        FROM '""" + str(company) + "' ORDER BY Блюдо")
+
+        tovars = cursor.fetchall()
+        conn.close()
+        return tovars
+
+    def kitchen(self):
+        conn = sqlite3.connect(config.expl)
+        cursor = conn.cursor()
+        cursor.execute("""
+        SELECT Название
+        FROM Кухня
+        ORDER BY Название;
+        """)
+        kitchen = cursor.fetchall()
+        conn.close()
+        return kitchen
+    def bludo_po_kuhne(self, kitchen_vibor):
+        conn = sqlite3.connect(config.expl)
+        cursor = conn.cursor()
+        self.kitchen_vibor = "Фастфуд"
+        cursor.execute("""
+        SELECT Блюдо
+          FROM KFC
+          WHERE Кухня = '""" + str(kitchen_vibor) + "'")
+        kitchen_price = cursor.fetchall()
+        conn.close()
+        return kitchen_price
+    def bludo_info(self, bludo):
+        conn = sqlite3.connect(config.expl)
+        cursor = conn.cursor()
+        # Вывод всей информации о блюде
+        self.bludo = "Биггер"
+        cursor.execute("""
+        SELECT *
+          FROM KFC
+         WHERE Блюдо = '""" + str(bludo) + "'")
+        info_food = cursor.fetchall()
+        conn.close()
+        return info_food
+
+
+
+
     bot.polling(none_stop=True)
+
+
